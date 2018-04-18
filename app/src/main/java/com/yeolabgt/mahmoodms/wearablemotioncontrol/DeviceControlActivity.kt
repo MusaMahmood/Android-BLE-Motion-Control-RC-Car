@@ -264,11 +264,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         mRedrawer = Redrawer(xyPlotList, 30f, false)
         mRedrawer!!.start()
         mGraphInitializedBoolean = true
-        mGraphAdapterMotionAX?.setxAxisIncrement(0.010)
+        mGraphAdapterMotionAX?.setxAxisIncrement(0.020)
         mGraphAdapterMotionAX?.setSeriesHistoryDataPoints(800)
-        mGraphAdapterMotionAY?.setxAxisIncrement(0.010)
+        mGraphAdapterMotionAY?.setxAxisIncrement(0.020)
         mGraphAdapterMotionAY?.setSeriesHistoryDataPoints(800)
-        mGraphAdapterMotionAZ?.setxAxisIncrement(0.010)
+        mGraphAdapterMotionAZ?.setxAxisIncrement(0.020)
         mGraphAdapterMotionAZ?.setSeriesHistoryDataPoints(800)
     }
 
@@ -474,6 +474,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                 mSaveFileMPU!!.terminateDataFileWriter()
                 createNewFileMPU()
             }
+            //TODO: Classify!
         }
     }
 
