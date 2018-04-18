@@ -1,4 +1,4 @@
-package com.yeolabgt.mahmoodms.ecgmpu1chdemo
+package com.yeolabgt.mahmoodms.wearablemotioncontrol
 
 import android.support.test.InstrumentationRegistry
 import android.support.test.runner.AndroidJUnit4

@@ -1,4 +1,4 @@
-package com.yeolabgt.mahmoodms.ecgmpu1chdemo
+package com.yeolabgt.mahmoodms.wearablemotioncontrol
 
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.le.ScanRecord

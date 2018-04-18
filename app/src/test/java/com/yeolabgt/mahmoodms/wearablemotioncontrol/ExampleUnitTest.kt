@@ -1,4 +1,4 @@
-package com.yeolabgt.mahmoodms.ecgmpu1chdemo
+package com.yeolabgt.mahmoodms.wearablemotioncontrol
 
 import org.junit.Test
 
