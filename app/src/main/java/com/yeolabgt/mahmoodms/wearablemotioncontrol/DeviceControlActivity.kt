@@ -1,12 +1,7 @@
 package com.yeolabgt.mahmoodms.wearablemotioncontrol
 
 import android.app.Activity
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
-import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
+import android.bluetooth.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -21,6 +16,7 @@ import android.support.v4.content.FileProvider
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -29,6 +25,7 @@ import android.widget.ToggleButton
 
 import com.androidplot.util.Redrawer
 import com.yeolabgt.mahmoodms.actblelibrary.ActBle
+import kotlinx.android.synthetic.main.activity_device_control.*
 
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -49,6 +46,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     //Device Information
     private var mBleInitializedBoolean = false
     private lateinit var mBluetoothGattArray: Array<BluetoothGatt?>
+    private var mLedWheelchairControlService: BluetoothGattService? = null
+    private var mWheelchairGattIndex: Int = 0
+    //Classification
+    private var mWheelchairControl = false //Default classifier.
     private var mActBle: ActBle? = null
     private var mDeviceName: String? = null
     private var mDeviceAddress: String? = null
@@ -110,13 +111,21 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         //UI Listeners
         mChannelSelect = findViewById(R.id.toggleButtonGraph)
         mChannelSelect!!.setOnCheckedChangeListener { _, b ->
-//            mGraphAdapterCh1!!.clearPlot()
-//            mGraphAdapterCh2!!.clearPlot()
-//            mGraphAdapterCh1!!.plotData = b
-//            mGraphAdapterCh2!!.plotData = b
+            mWheelchairControl = b
+            val viewVisibility = if (b) View.VISIBLE else View.INVISIBLE
+            buttonS.visibility = viewVisibility
+            buttonF.visibility = viewVisibility
+            buttonL.visibility = viewVisibility
+            buttonR.visibility = viewVisibility
+            buttonReverse.visibility = viewVisibility
             //TODO: Give me a purpose?!
         }
         mExportButton.setOnClickListener { exportData() }
+        buttonS.setOnClickListener { executeWheelchairCommand(0) }
+        buttonF.setOnClickListener { executeWheelchairCommand(1) }
+        buttonL.setOnClickListener { executeWheelchairCommand(2) }
+        buttonR.setOnClickListener { executeWheelchairCommand(3) }
+        buttonReverse.setOnClickListener { executeWheelchairCommand(4) }
     }
 
     private fun exportData() {
@@ -173,13 +182,12 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         mBluetoothGattArray = Array(deviceMacAddresses!!.size, { i -> mActBle!!.connect(mBluetoothDeviceArray[i]) })
         for (i in mBluetoothDeviceArray.indices) {
             Log.e(TAG, "Connecting to Device: " + (mBluetoothDeviceArray[i]!!.name + " " + mBluetoothDeviceArray[i]!!.address))
-            if ("EMG 250Hz" == mBluetoothDeviceArray[i]!!.name) {
-                mMSBFirst = false
-            } else if (mBluetoothDeviceArray[i]!!.name != null) {
-                if (mBluetoothDeviceArray[i]!!.name.toLowerCase().contains("nrf52")) {
-                    mMSBFirst = true
-                }
+            if ("WheelchairControl" == mBluetoothDeviceArray[i]!!.name) {
+                mWheelchairGattIndex = i
+                Log.e(TAG, "mWheelchairGattIndex: " + mWheelchairGattIndex)
+                continue //we are done initializing
             }
+
             val str = mBluetoothDeviceArray[i]!!.name.toLowerCase()
             when {
                 str.contains("8k") -> {
@@ -218,6 +226,24 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         } else if (!mSaveFileMPU!!.initialized) {
             Log.e(TAG, "New Filename: " + fileNameTimeStamped)
             mSaveFileMPU?.createNewFile(directory, fileNameTimeStamped)
+        }
+    }
+
+    private fun executeWheelchairCommand(command: Int) {
+        val bytes = ByteArray(1)
+        when (command) {
+            0 -> bytes[0] = 0x00.toByte()
+            1 -> bytes[0] = 0x01.toByte() // Stop
+            2 -> bytes[0] = 0xF0.toByte() // Rotate Left
+            3 -> bytes[0] = 0x0F.toByte() // Rotate Right ??
+            4 -> bytes[0] = 0xFF.toByte() // TODO: 6/27/2017 Disconnect instead of reverse?
+            else -> {
+            }
+        }
+        if (mLedWheelchairControlService != null && mWheelchairControl) {
+            Log.e(TAG, "SendingCommand: " + command.toString())
+            Log.e(TAG, "SendingCommand (byte): " + DataChannel.byteArrayToHexString(bytes))
+            mActBle!!.writeCharacteristic(mBluetoothGattArray[mWheelchairGattIndex]!!, mLedWheelchairControlService!!.getCharacteristic(AppConstant.CHAR_WHEELCHAIR_CONTROL), bytes)
         }
     }
 
@@ -378,6 +404,12 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
                         mActBle!!.readCharacteristic(gatt, service.getCharacteristic(AppConstant.CHAR_SOFTWARE_REV))
                     }
                 }
+
+                if (AppConstant.SERVICE_WHEELCHAIR_CONTROL == service.uuid) {
+                    mLedWheelchairControlService = service
+                    Log.i(TAG, "BLE Wheelchair Control Service found")
+                }
+
                 if (AppConstant.SERVICE_EEG_SIGNAL == service.uuid) {
                     if (service.getCharacteristic(AppConstant.CHAR_EEG_CH1_SIGNAL) != null) {
                         mActBle!!.setCharacteristicNotifications(gatt, service.getCharacteristic(AppConstant.CHAR_EEG_CH1_SIGNAL), true)
@@ -427,11 +459,6 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     }
 
     override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-        if (mCh1 == null || mCh2 == null) {
-            mCh1 = DataChannel(false, mMSBFirst, 4 * mSampleRate)
-            mCh2 = DataChannel(false, mMSBFirst, 4 * mSampleRate)
-        }
-
         if (AppConstant.CHAR_BATTERY_LEVEL == characteristic.uuid) {
             val batteryLevel = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT16, 0)!!
             updateBatteryStatus(batteryLevel)

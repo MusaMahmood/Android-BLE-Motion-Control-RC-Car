@@ -61,6 +61,30 @@ internal class DataChannel(var chEnabled: Boolean, MSBFirst: Boolean, //Classifi
     companion object {
         private var MSBFirst: Boolean = false
 
+        private val HEX_CHARS = charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                'A', 'B', 'C', 'D', 'E', 'F')
+
+        fun byteArrayToHexString(byteArray: ByteArray) : String = byteArray.toHex()
+
+        private fun ByteArray.toHex() : String {
+            val result = StringBuffer()
+
+            forEach {
+                val octet = it.toInt()
+                val firstIndex = (octet and 0xF0).ushr(4)
+                val secondIndex = octet and 0x0F
+                result.append(HEX_CHARS[firstIndex])
+                result.append(HEX_CHARS[secondIndex])
+            }
+
+            return result.toString()
+        }
+
+        fun bytesToSignedInt(a1: Byte, a2: Byte): Int {
+            val unsigned: Int = unsignedBytesToInt(a1, a2, MSBFirst)
+            return unsignedToSigned16bit(unsigned)
+        }
+
         fun bytesToDoubleMPUAccel(a1: Byte, a2: Byte): Double {
             val unsigned: Int = unsignedBytesToInt(a1, a2, MSBFirst)
             return unsignedToSigned16bit(unsigned).toDouble() / 32767.0 * 16.0
