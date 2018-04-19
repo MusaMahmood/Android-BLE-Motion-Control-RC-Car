@@ -2,6 +2,7 @@ package com.yeolabgt.mahmoodms.wearablemotioncontrol
 
 import android.os.Environment
 import android.util.Log
+import com.google.common.primitives.Doubles
 
 import com.opencsv.CSVWriter
 
@@ -83,16 +84,29 @@ constructor(directory: String, fileName: String, byteResolution: Int, increment:
      *
      * @param bytes split into 6 colns:
      */
-    fun exportDataWithTimestampMPU(bytes: ByteArray?) {
-        for (i in 0 until bytes!!.size / 12) {
+    fun exportDataWithTimestampMPU(bytes: ByteArray?): DoubleArray {
+        val ax_array = DoubleArray(bytes!!.size/12)
+        val ay_array = DoubleArray(bytes.size/12)
+        val az_array = DoubleArray(bytes.size/12)
+        val gx_array = DoubleArray(bytes.size/12)
+        val gy_array = DoubleArray(bytes.size/12)
+        val gz_array = DoubleArray(bytes.size/12)
+        for (i in 0 until bytes.size / 12) {
             val ax = DataChannel.bytesToDoubleMPUAccel(bytes[12 * i], bytes[12 * i + 1])
+            ax_array[i] = ax
             val ay = DataChannel.bytesToDoubleMPUAccel(bytes[12 * i + 2], bytes[12 * i + 3])
+            ay_array[i] = ay
             val az = DataChannel.bytesToDoubleMPUAccel(bytes[12 * i + 4], bytes[12 * i + 5])
+            az_array[i] = az
             val gx = DataChannel.bytesToDoubleMPUGyro(bytes[12 * i + 6], bytes[12 * i + 7])
+            gx_array[i] = gx / 4000
             val gy = DataChannel.bytesToDoubleMPUGyro(bytes[12 * i + 8], bytes[12 * i + 9])
+            gy_array[i] = gy / 4000
             val gz = DataChannel.bytesToDoubleMPUGyro(bytes[12 * i + 10], bytes[12 * i + 11])
+            gz_array[i] = gz / 4000
             exportDataDouble(ax, ay, az, gx, gy, gz)
         }
+        return Doubles.concat(ax_array, ay_array, az_array, gx_array, gy_array, gz_array)//arrayOf(ax_array, ay_array, az_array, gx_array, gy_array, gz_array)
     }
 
     private fun writeToDiskFloat(vararg byteArrays: ByteArray?) {

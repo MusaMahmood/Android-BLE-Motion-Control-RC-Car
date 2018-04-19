@@ -10,9 +10,11 @@ import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.support.v4.app.NavUtils
 import android.support.v4.content.FileProvider
+import android.support.v4.content.MimeTypeFilter
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -24,8 +26,11 @@ import android.widget.Toast
 import android.widget.ToggleButton
 
 import com.androidplot.util.Redrawer
+import com.google.common.primitives.Floats
 import com.yeolabgt.mahmoodms.actblelibrary.ActBle
 import kotlinx.android.synthetic.main.activity_device_control.*
+import org.tensorflow.contrib.android.TensorFlowInferenceInterface
+import java.io.File
 
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -36,7 +41,7 @@ import java.util.*
  * Android Activity for Controlling Bluetooth LE Device Connectivity
  */
 
-class DeviceControlActivity : Activity(), ActBle.ActBleListener {
+class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptionsMenu.NoticeDialogListener {
     // Graphing Variables:
     private var mGraphInitializedBoolean = false
     private var mGraphAdapterMotionAX: GraphAdapter? = null
@@ -70,10 +75,93 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
     //Data Variables:
     private val batteryWarning = 20//
     private var dataRate: Double = 0.toDouble()
-    //Play Sound:
-
+    //Tensorflow:
+    private var mTFRunModel = false
+    private var mClassifierInput = DoubleArray(20*6)
+    private var mTFInferenceInterface: TensorFlowInferenceInterface? = null
+    private var mOutputScoresNames: Array<String>? = null
+    private var mTensorflowSolutionIndex = 0
+    private var mTensorflowWindowSize = 20
+    private var mTensorflowXDim = 6 // x-dimension
+    private var mTensorflowYDim = 20 // y-dimension
+    private var mNumberOfClassifierCalls = 0
     private val mTimeStamp: String
         get() = SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.US).format(Date())
+
+    private val mClassifyThread = Runnable {
+        if (mTFRunModel) {
+            mOutputScoresNames = arrayOf(OUTPUT_DATA_FEED)
+            val outputScores = FloatArray(5)
+            val mTensorflowInputFeed: FloatArray = Floats.toArray(mClassifierInput.asList())
+            Log.i(TAG, "mTensorflowInputFeed: " + Arrays.toString(mTensorflowInputFeed))
+            // Feed Data:
+            mTFInferenceInterface!!.feed("keep_prob", floatArrayOf(1f))
+            mTFInferenceInterface!!.feed(INPUT_DATA_FEED, mTensorflowInputFeed, mTensorflowXDim.toLong(), mTensorflowYDim.toLong())
+            mTFInferenceInterface!!.run(mOutputScoresNames)
+            mTFInferenceInterface!!.fetch(OUTPUT_DATA_FEED, outputScores)
+            Log.i(TAG, "outputScores: "+Arrays.toString(outputScores))
+            val yTF = DataChannel.getIndexOfLargest(outputScores)
+            Log.i(TAG, "CALL#" + mNumberOfClassifierCalls.toString() + ":\n" +
+                    "TF outputScores: " + Arrays.toString(outputScores))
+            val s = "[" + yTF.toString() + "]"
+            runOnUiThread { myfit!!.text = s }
+            mNumberOfClassifierCalls++
+            executeWheelchairCommand(yTF)
+        } else {
+            val s = ""
+            runOnUiThread { myfit!!.text = s }
+        }
+    }
+
+    private fun showNoticeDialog() {
+        val dialog = TensorflowOptionsMenu()
+        dialog.show(fragmentManager, "TFOM")
+    }
+
+    @Override
+    override fun onTensorflowOptionsClick(integerValue: Int) {
+        enableTensorFlowModel(File(MODEL_FILENAME), integerValue)
+    }
+
+    private fun enableTensorFlowModel(embeddedModel: File, integerValue: Int) {
+        mTensorflowSolutionIndex = integerValue
+        val customModelPath = Environment.getExternalStorageDirectory().absolutePath + "/Download/tensorflow_assets/"
+        // Hard-coded Strings of Model Names
+        // NOTE: Zero index is an empty string (no model)
+        val customModel = arrayOf("", "motion_ctrl_opt_CNN-1-a.parametricrelu.[0.1]-drop0.5-fc.64.relu-lr.1e-3-k.[5]")
+
+        val tensorflowModelLocation = customModelPath + customModel[integerValue] + ".pb"
+        for (s in customModel) {
+            val tempPath = customModelPath + s + ".pb"
+            Log.e(TAG, "Model " + tempPath + " exists? " + File(tempPath).exists().toString())
+        }
+        mTensorflowWindowSize = 20
+        mTensorflowXDim = 6
+        mTensorflowYDim = 20
+        Log.e(TAG, "Input Length: 6x" + mTensorflowWindowSize + " Output = " + mTensorflowXDim + "x" + mTensorflowYDim)
+        when {
+            File(tensorflowModelLocation).exists() -> {
+                mTFInferenceInterface = TensorFlowInferenceInterface(assets, tensorflowModelLocation)
+                //Reset counter:
+                mNumberOfClassifierCalls = 1
+                mTFRunModel = true
+                Log.i(TAG, "Tensorflow: customModel loaded")
+            }
+            embeddedModel.exists() -> { //Check if there's a model included:
+                mChannelSelect!!.isChecked = false // tensorflowClassificationSwitch
+                mTFRunModel = false
+                Toast.makeText(applicationContext, "No TF Model Found!", Toast.LENGTH_LONG).show()
+            }
+            else -> { // No model found, continuing with original (reset switch)
+                mChannelSelect!!.isChecked = false
+                mTFRunModel = false
+                Toast.makeText(applicationContext, "No TF Model Found!", Toast.LENGTH_LONG).show()
+            }
+        }
+        if (mTFRunModel) {
+            Toast.makeText(applicationContext, "TF Model Loaded", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -118,8 +206,15 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             buttonL.visibility = viewVisibility
             buttonR.visibility = viewVisibility
             buttonReverse.visibility = viewVisibility
-            //TODO: Give me a purpose?!
+            if (b) {
+                showNoticeDialog()
+            } else {
+                //Reset counter:
+                mTFRunModel = false
+                mNumberOfClassifierCalls = 1
+            }
         }
+        batteryText.visibility = View.GONE
         mExportButton.setOnClickListener { exportData() }
         buttonS.setOnClickListener { executeWheelchairCommand(0) }
         buttonF.setOnClickListener { executeWheelchairCommand(1) }
@@ -469,7 +564,10 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
             getDataRateBytes(dataMPU.size)
             mMPU!!.handleNewData(dataMPU)
             addToGraphBufferMPU(mMPU!!)
-            mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
+            // Get data from buffer!: type: Concatenataed DoubleArray (sizeof 6*20).
+            mClassifierInput = mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
+            val classifyTaskThread = Thread(mClassifyThread)
+            classifyTaskThread.start()
             if (mSaveFileMPU!!.mLinesWrittenCurrentFile > 1048576) {
                 mSaveFileMPU!!.terminateDataFileWriter()
                 createNewFileMPU()
@@ -668,10 +766,12 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener {
         //RSSI:
         const val RSSI_UPDATE_TIME_INTERVAL = 2000
         var mSSVEPClass = 0.0
+        const val INPUT_DATA_FEED = "input"
+        const val OUTPUT_DATA_FEED = "output"
         //Save Data File
 //        private var mPrimarySaveDataFile: SaveDataFile? = null
         private var mSaveFileMPU: SaveDataFile? = null
-
+        private const val MODEL_FILENAME = "file:///android_asset/opt_ssvep_net.pb"
         init {
             System.loadLibrary("ecg-lib")
         }

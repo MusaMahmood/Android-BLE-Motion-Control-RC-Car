@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="tf_options">
+        <item>"None"</item>
+        <item>"1-CNN,Input:20-point acc/gyro[6 x 20]"</item>
+    </string-array>
+</resources>

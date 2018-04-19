@@ -37,10 +37,10 @@ internal class DataChannel(var chEnabled: Boolean, MSBFirst: Boolean, //Classifi
         } else {
             this.dataBuffer = newDataPacket
         }
-        for (i in 0 until newDataPacket.size / 3) {
-            addToBuffer(bytesToDouble(newDataPacket[3 * i], newDataPacket[3 * i + 1], newDataPacket[3 * i + 2]))
-        }
-        this.totalDataPointsReceived += newDataPacket.size / 3
+//        for (i in 0 until newDataPacket.size / 3) {
+//            addToBuffer(bytesToDouble(newDataPacket[3 * i], newDataPacket[3 * i + 1], newDataPacket[3 * i + 2]))
+//        }
+        this.totalDataPointsReceived += newDataPacket.size / 12
         this.packetCounter++
     }
 
@@ -78,6 +78,16 @@ internal class DataChannel(var chEnabled: Boolean, MSBFirst: Boolean, //Classifi
             }
 
             return result.toString()
+        }
+
+        fun getIndexOfLargest(array: FloatArray?): Int {
+            if (array == null || array.isEmpty()) return -1 // null or empty
+
+            var largest = 0
+            for (i in 1 until array.size) {
+                if (array[i] > array[largest]) largest = i
+            }
+            return largest // position of the first largest found
         }
 
         fun bytesToSignedInt(a1: Byte, a2: Byte): Int {
