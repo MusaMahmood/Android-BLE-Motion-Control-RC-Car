@@ -47,7 +47,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
     private var mGraphAdapterMotionAX: GraphAdapter? = null
     private var mGraphAdapterMotionAY: GraphAdapter? = null
     private var mGraphAdapterMotionAZ: GraphAdapter? = null
+    private var mGraphAdapterMotionGX: GraphAdapter? = null
+    private var mGraphAdapterMotionGY: GraphAdapter? = null
+    private var mGraphAdapterMotionGZ: GraphAdapter? = null
     private var mMotionDataPlotAdapter: XYPlotAdapter? = null
+    private var mMotionDataPlotAdapter2: XYPlotAdapter? = null
     //Device Information
     private var mBleInitializedBoolean = false
     private lateinit var mBluetoothGattArray: Array<BluetoothGatt?>
@@ -198,6 +202,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
         mLastTime = System.currentTimeMillis()
         //UI Listeners
         mChannelSelect = findViewById(R.id.toggleButtonGraph)
+        buttonS.visibility = View.INVISIBLE
+        buttonF.visibility = View.INVISIBLE
+        buttonL.visibility = View.INVISIBLE
+        buttonR.visibility = View.INVISIBLE
+        buttonReverse.visibility = View.INVISIBLE
         mChannelSelect!!.setOnCheckedChangeListener { _, b ->
             mWheelchairControl = b
             val viewVisibility = if (b) View.VISIBLE else View.INVISIBLE
@@ -344,27 +353,45 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
 
     private fun setupGraph() {
         // Initialize our XYPlot reference:
+        mGraphAdapterMotionGX = GraphAdapter(375, "Gyr X", false, rgbToInt(209, 69, 69))
+        mGraphAdapterMotionGY = GraphAdapter(375, "Gyr Y", false, rgbToInt(0xFF, 0xB3, 0x00))
+        mGraphAdapterMotionGZ = GraphAdapter(375, "Gyr Z", false, rgbToInt(0x66, 0xB2, 0xFF))
         mGraphAdapterMotionAX = GraphAdapter(375, "Acc X", false, Color.RED)
         mGraphAdapterMotionAY = GraphAdapter(375, "Acc Y", false, Color.GREEN)
         mGraphAdapterMotionAZ = GraphAdapter(375, "Acc Z", false, Color.BLUE)
         //PLOT CH1 By default
-        mGraphAdapterMotionAX?.setPointWidth(5.toFloat())
-        mGraphAdapterMotionAY?.setPointWidth(5.toFloat())
-        mGraphAdapterMotionAZ?.setPointWidth(5.toFloat())
         mMotionDataPlotAdapter = XYPlotAdapter(findViewById(R.id.motionDataPlot), "Time (s)", "Acc (g)", 375.0)
         mMotionDataPlotAdapter?.xyPlot!!.addSeries(mGraphAdapterMotionAX?.series, mGraphAdapterMotionAX?.lineAndPointFormatter)
         mMotionDataPlotAdapter?.xyPlot!!.addSeries(mGraphAdapterMotionAY?.series, mGraphAdapterMotionAY?.lineAndPointFormatter)
         mMotionDataPlotAdapter?.xyPlot!!.addSeries(mGraphAdapterMotionAZ?.series, mGraphAdapterMotionAZ?.lineAndPointFormatter)
-        val xyPlotList = listOf(mMotionDataPlotAdapter?.xyPlot)
+        mMotionDataPlotAdapter2 = XYPlotAdapter(findViewById(R.id.motionDataPlot2), "Time (s)", "Gyro (r/s)", 375.0)
+        mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGX?.series, mGraphAdapterMotionGX?.lineAndPointFormatter)
+        mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGY?.series, mGraphAdapterMotionGY?.lineAndPointFormatter)
+        mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGZ?.series, mGraphAdapterMotionGZ?.lineAndPointFormatter)
+        val xyPlotList = listOf(mMotionDataPlotAdapter?.xyPlot, mMotionDataPlotAdapter2?.xyPlot)
         mRedrawer = Redrawer(xyPlotList, 30f, false)
         mRedrawer!!.start()
         mGraphInitializedBoolean = true
-        mGraphAdapterMotionAX?.setxAxisIncrement(0.020)
-        mGraphAdapterMotionAX?.setSeriesHistoryDataPoints(800)
-        mGraphAdapterMotionAY?.setxAxisIncrement(0.020)
-        mGraphAdapterMotionAY?.setSeriesHistoryDataPoints(800)
-        mGraphAdapterMotionAZ?.setxAxisIncrement(0.020)
-        mGraphAdapterMotionAZ?.setSeriesHistoryDataPoints(800)
+        mGraphAdapterMotionAX?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionAX?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionAY?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionAY?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionAZ?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionAZ?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionGX?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionGX?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionGY?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionGY?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionGZ?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionGZ?.setSeriesHistoryDataPoints(375)
+    }
+
+    private fun rgbToInt(R: Int, G: Int, B: Int):Int {
+        val r = R shl 16 and 0x00FF0000
+        val g = G shl 8 and 0x0000FF00
+        val b = B and 0x000000FF
+
+        return -0x1000000 or r or g or b
     }
 
     private fun setNameAddress(name_action: String?, address_action: String?) {
@@ -582,6 +609,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
                 mGraphAdapterMotionAX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i], dataChannel.dataBuffer!![12 * i + 1]), mTimestampIdxMPU)
                 mGraphAdapterMotionAY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 2], dataChannel.dataBuffer!![12 * i + 3]), mTimestampIdxMPU)
                 mGraphAdapterMotionAZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 4], dataChannel.dataBuffer!![12 * i + 5]), mTimestampIdxMPU)
+                mGraphAdapterMotionGX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 6], dataChannel.dataBuffer!![12 * i + 7]), mTimestampIdxMPU)
+                mGraphAdapterMotionGY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 8], dataChannel.dataBuffer!![12 * i + 9]), mTimestampIdxMPU)
+                mGraphAdapterMotionGZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 10], dataChannel.dataBuffer!![12 * i + 11]), mTimestampIdxMPU)
                 mTimestampIdxMPU += 1
             }
         }
