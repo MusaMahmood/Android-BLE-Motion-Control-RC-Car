@@ -609,7 +609,7 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
             mMPU!!.handleNewData(dataMPU)
             addToGraphBufferMPU(mMPU!!)
             // Get data from buffer!: type: Concatenataed DoubleArray (sizeof 6*20).
-            mClassifierInput = mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
+            mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
 //            val classifyTaskThread = Thread(mClassifyThread)
 //            classifyTaskThread.start()
             if (mSaveFileMPU!!.mLinesWrittenCurrentFile > 1048576) {
