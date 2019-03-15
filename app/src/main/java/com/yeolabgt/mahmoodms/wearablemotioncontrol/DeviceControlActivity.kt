@@ -50,8 +50,12 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
     private var mGraphAdapterMotionGX: GraphAdapter? = null
     private var mGraphAdapterMotionGY: GraphAdapter? = null
     private var mGraphAdapterMotionGZ: GraphAdapter? = null
+    private var mGraphAdapterMotionMX: GraphAdapter? = null
+    private var mGraphAdapterMotionMY: GraphAdapter? = null
+    private var mGraphAdapterMotionMZ: GraphAdapter? = null
     private var mMotionDataPlotAdapter: XYPlotAdapter? = null
     private var mMotionDataPlotAdapter2: XYPlotAdapter? = null
+    private var mMotionDataPlotAdapter3: XYPlotAdapter? = null
     //Device Information
     private var mBleInitializedBoolean = false
     private lateinit var mBluetoothGattArray: Array<BluetoothGatt?>
@@ -359,6 +363,9 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
         mGraphAdapterMotionAX = GraphAdapter(375, "Acc X", false, Color.RED)
         mGraphAdapterMotionAY = GraphAdapter(375, "Acc Y", false, Color.GREEN)
         mGraphAdapterMotionAZ = GraphAdapter(375, "Acc Z", false, Color.BLUE)
+        mGraphAdapterMotionMX = GraphAdapter(375, "Magn X", false, rgbToInt(66, 244, 217))
+        mGraphAdapterMotionMY = GraphAdapter(375, "Magn Y", false, rgbToInt(226, 92, 9))
+        mGraphAdapterMotionMZ = GraphAdapter(375, "Magn Z", false, rgbToInt(182, 8, 226))
         //PLOT CH1 By default
         mMotionDataPlotAdapter = XYPlotAdapter(findViewById(R.id.motionDataPlot), "Time (s)", "Acc (g)", 375.0)
         mMotionDataPlotAdapter?.xyPlot!!.addSeries(mGraphAdapterMotionAX?.series, mGraphAdapterMotionAX?.lineAndPointFormatter)
@@ -368,7 +375,11 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
         mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGX?.series, mGraphAdapterMotionGX?.lineAndPointFormatter)
         mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGY?.series, mGraphAdapterMotionGY?.lineAndPointFormatter)
         mMotionDataPlotAdapter2?.xyPlot!!.addSeries(mGraphAdapterMotionGZ?.series, mGraphAdapterMotionGZ?.lineAndPointFormatter)
-        val xyPlotList = listOf(mMotionDataPlotAdapter?.xyPlot, mMotionDataPlotAdapter2?.xyPlot)
+        mMotionDataPlotAdapter3 = XYPlotAdapter(findViewById(R.id.motionDataPlot3), "Time (s)", "Magn (uT)", 375.0)
+        mMotionDataPlotAdapter3?.xyPlot!!.addSeries(mGraphAdapterMotionMX?.series, mGraphAdapterMotionMX?.lineAndPointFormatter)
+        mMotionDataPlotAdapter3?.xyPlot!!.addSeries(mGraphAdapterMotionMY?.series, mGraphAdapterMotionMY?.lineAndPointFormatter)
+        mMotionDataPlotAdapter3?.xyPlot!!.addSeries(mGraphAdapterMotionMZ?.series, mGraphAdapterMotionMZ?.lineAndPointFormatter)
+        val xyPlotList = listOf(mMotionDataPlotAdapter?.xyPlot, mMotionDataPlotAdapter2?.xyPlot, mMotionDataPlotAdapter3?.xyPlot)
         mRedrawer = Redrawer(xyPlotList, 30f, false)
         mRedrawer!!.start()
         mGraphInitializedBoolean = true
@@ -384,6 +395,12 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
         mGraphAdapterMotionGY?.setSeriesHistoryDataPoints(375)
         mGraphAdapterMotionGZ?.setxAxisIncrement(0.032)
         mGraphAdapterMotionGZ?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionMX?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionMX?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionMY?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionMY?.setSeriesHistoryDataPoints(375)
+        mGraphAdapterMotionMZ?.setxAxisIncrement(0.032)
+        mGraphAdapterMotionMZ?.setSeriesHistoryDataPoints(375)
     }
 
     private fun rgbToInt(R: Int, G: Int, B: Int):Int {
@@ -593,8 +610,8 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
             addToGraphBufferMPU(mMPU!!)
             // Get data from buffer!: type: Concatenataed DoubleArray (sizeof 6*20).
             mClassifierInput = mSaveFileMPU!!.exportDataWithTimestampMPU(mMPU!!.characteristicDataPacketBytes)
-            val classifyTaskThread = Thread(mClassifyThread)
-            classifyTaskThread.start()
+//            val classifyTaskThread = Thread(mClassifyThread)
+//            classifyTaskThread.start()
             if (mSaveFileMPU!!.mLinesWrittenCurrentFile > 1048576) {
                 mSaveFileMPU!!.terminateDataFileWriter()
                 createNewFileMPU()
@@ -605,13 +622,16 @@ class DeviceControlActivity : Activity(), ActBle.ActBleListener, TensorflowOptio
 
     private fun addToGraphBufferMPU(dataChannel: DataChannel) {
         if (dataChannel.dataBuffer!=null) {
-            for (i in 0 until dataChannel.dataBuffer!!.size / 12) {
-                mGraphAdapterMotionAX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i], dataChannel.dataBuffer!![12 * i + 1]), mTimestampIdxMPU)
-                mGraphAdapterMotionAY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 2], dataChannel.dataBuffer!![12 * i + 3]), mTimestampIdxMPU)
-                mGraphAdapterMotionAZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![12 * i + 4], dataChannel.dataBuffer!![12 * i + 5]), mTimestampIdxMPU)
-                mGraphAdapterMotionGX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 6], dataChannel.dataBuffer!![12 * i + 7]), mTimestampIdxMPU)
-                mGraphAdapterMotionGY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 8], dataChannel.dataBuffer!![12 * i + 9]), mTimestampIdxMPU)
-                mGraphAdapterMotionGZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![12 * i + 10], dataChannel.dataBuffer!![12 * i + 11]), mTimestampIdxMPU)
+            for (i in 0 until dataChannel.dataBuffer!!.size / 18) {
+                mGraphAdapterMotionAX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![18 * i], dataChannel.dataBuffer!![18 * i + 1]), mTimestampIdxMPU)
+                mGraphAdapterMotionAY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![18 * i + 2], dataChannel.dataBuffer!![18 * i + 3]), mTimestampIdxMPU)
+                mGraphAdapterMotionAZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUAccel(dataChannel.dataBuffer!![18 * i + 4], dataChannel.dataBuffer!![18 * i + 5]), mTimestampIdxMPU)
+                mGraphAdapterMotionGX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 6], dataChannel.dataBuffer!![18 * i + 7]), mTimestampIdxMPU)
+                mGraphAdapterMotionGY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 8], dataChannel.dataBuffer!![18 * i + 9]), mTimestampIdxMPU)
+                mGraphAdapterMotionGZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 10], dataChannel.dataBuffer!![18 * i + 11]), mTimestampIdxMPU)
+                mGraphAdapterMotionMX?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 12], dataChannel.dataBuffer!![18 * i + 13]), mTimestampIdxMPU)
+                mGraphAdapterMotionMY?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 14], dataChannel.dataBuffer!![18 * i + 15]), mTimestampIdxMPU)
+                mGraphAdapterMotionMZ?.addDataPointTimeDomain(DataChannel.bytesToDoubleMPUGyro(dataChannel.dataBuffer!![18 * i + 16], dataChannel.dataBuffer!![18 * i + 17]), mTimestampIdxMPU)
                 mTimestampIdxMPU += 1
             }
         }

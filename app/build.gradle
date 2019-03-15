@@ -24,7 +24,6 @@ project.ext.ASSET_DIR = getProjectDir().toString() + '/assets'
 
 android {
     compileSdkVersion 26
-    buildToolsVersion '26.0.2'
     defaultConfig {
         applicationId "com.yeolabgt.mahmoodms.wearablemotioncontrol"
         minSdkVersion 22
@@ -78,12 +77,11 @@ android {
 
 dependencies {
     //Added
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-    compile files('libs/opencsv-3.7.jar')
-    compile project(':actblelibrary')
-    compile 'com.androidplot:androidplot-core:1.5.1'
-    compile 'com.google.guava:guava:23.0-android'
-
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation files('libs/opencsv-3.7.jar')
+    implementation project(':actblelibrary')
+    implementation 'com.androidplot:androidplot-core:1.5.1'
+    implementation 'com.google.guava:guava:23.0-android'
     //Original
     testImplementation 'junit:junit:4.12'
     implementation 'com.android.support:appcompat-v7:26.1.0'
@@ -91,10 +89,10 @@ dependencies {
     androidTestImplementation('com.android.support.test.espresso:espresso-core:3.0.1', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     //TensorFlow
     if (nativeBuildSystem == 'cmake' || nativeBuildSystem == 'none') {
-        compile 'org.tensorflow:tensorflow-android:+'
+        implementation 'org.tensorflow:tensorflow-android:+'
     }
 }
